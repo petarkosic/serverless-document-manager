@@ -1,8 +1,9 @@
 import { config } from 'dotenv'
 config();
 import AWS from 'aws-sdk';
+import JSZip from 'jszip';
 import fs from "fs";
-
+import path from 'path';
 
 const awsConfig = {
     endpoint: 'http://localstack:4566',
@@ -11,7 +12,6 @@ const awsConfig = {
         accessKeyId: 'test',
         secretAccessKey: 'test',
     },
-    forcePathStyle: true,
 };
 const s3 = new AWS.S3({
     ...awsConfig,
@@ -19,6 +19,7 @@ const s3 = new AWS.S3({
     signatureVersion: 'v4',
 });
 const dynamoDB = new AWS.DynamoDB(awsConfig);
+const lambda = new AWS.Lambda(awsConfig);
 const apiGateway = new AWS.APIGateway(awsConfig);
 
 async function setupAPIGateway() {
@@ -79,12 +80,51 @@ async function setupAWS() {
             ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 }
         }).promise();
 
+        await createLambda('MetadataExtractor', 'metadata-extractor');
+        await createLambda('GetMetadata', 'get-metadata');
+
         await setupAPIGateway();
 
         console.log('AWS resources created!');
     } catch (err) {
         console.error('Setup error:', err);
     }
+}
+
+async function createLambda(name, handlerFile) {
+    const filePath = path.resolve('/app', 'lambda', `${handlerFile}.js`);
+
+    try {
+        const zip = new JSZip();
+        const zipped = fs.readFileSync(filePath, "utf8");
+
+        zip.file(handlerFile, zipped);
+
+        const zipBuffer = await zip.generateAsync({
+            type: 'nodebuffer',
+            compression: 'DEFLATE'
+        })
+
+        const params = {
+            FunctionName: name,
+            Runtime: 'nodejs18.x',
+            Handler: `${handlerFile}.handler`,
+            Role: 'arn:aws:iam::000000000000:role/lambda-role',
+            Code: { ZipFile: zipBuffer },
+        };
+
+        await lambda.createFunction(params).promise();
+    } catch (error) {
+        console.error('Error creating Lambda:', error);
+        console.error('Error details:', {
+            message: error.message,
+            code: error.code,
+            path: filePath,
+            exists: fs.existsSync(filePath),
+        });
+        throw error;
+    }
+
 }
 
 setupAWS();
