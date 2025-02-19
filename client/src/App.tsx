@@ -2,11 +2,15 @@ import axios from 'axios';
 import { useState } from 'react';
 
 const FileUploadForm = () => {
-	const [selectedFile, setSelectedFile] = useState(null);
+	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [uploadStatus, setUploadStatus] = useState('');
 
-	const handleFileSelect = (event) => {
-		setSelectedFile(event.target.files[0]);
+	const [imageUrl, setImageUrl] = useState(null);
+
+	const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+		if (event.target.files?.[0]) {
+			setSelectedFile(event.target.files[0]);
+		}
 	};
 
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -17,26 +21,28 @@ const FileUploadForm = () => {
 			return;
 		}
 
-		const formData = new FormData();
-		formData.append('file', selectedFile);
-
 		try {
 			setUploadStatus('Uploading...');
 
 			const response = await axios.post(
-				'http://localhost:5000/upload',
-				formData,
+				'http://localhost:5000/get-presigned-url',
 				{
-					headers: {
-						'Content-Type': 'multipart/form-data',
-					},
+					fileName: selectedFile.name,
+					fileType: selectedFile.type,
 				}
 			);
 
+			await axios.put(response.data.url, selectedFile, {
+				headers: {
+					'Content-Type': selectedFile.type,
+				},
+			});
+
+			const imageUrl = response.data.url.split('?')[0];
+			setImageUrl(imageUrl);
+
 			if (response.status === 200) {
-				setUploadStatus(
-					`File uploaded successfully! ID ${response.data.fileID}`
-				);
+				setUploadStatus(`File uploaded successfully! ID ${response.data.key}`);
 			} else {
 				setUploadStatus('Upload failed');
 			}
@@ -92,6 +98,16 @@ const FileUploadForm = () => {
 					}}
 				>
 					{uploadStatus}
+				</div>
+			)}
+			{imageUrl && (
+				<div
+					style={{
+						marginTop: '1rem',
+						textAlign: 'center',
+					}}
+				>
+					<img src={imageUrl} />
 				</div>
 			)}
 		</div>
