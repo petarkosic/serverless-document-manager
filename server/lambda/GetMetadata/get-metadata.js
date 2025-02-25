@@ -12,11 +12,30 @@ const awsConfig = {
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient(awsConfig);
 
-exports.handler = async () => {
-    const data = await dynamoDB.scan({ TableName: 'Documents' }).promise();
+exports.handler = async (event) => {
+    const fileID = decodeURIComponent(event.pathParameters.fileID);
 
-    return {
-        statusCode: 200,
-        body: JSON.stringify(data.Items)
-    };
+    try {
+        const data = await dynamoDB.get({
+            TableName: 'Documents',
+            Key: {
+                fileID
+            }
+        }).promise();
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(data.Item),
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Content-Type': 'application/json'
+            }
+        }
+    } catch (err) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: err.message })
+        }
+    }
 };
