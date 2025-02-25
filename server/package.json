@@ -1,0 +1,12 @@
+{
+  "name": "serverless-document-manager",
+  "version": "1.0.0",
+  "description": "Serverless Document Manager",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "aws-sdk": "^2.1692.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
