@@ -1,0 +1,63 @@
+services:
+  localstack:
+    image: localstack/localstack
+    container_name: sdm-localstack
+    hostname: localstack
+    ports:
+      - '4566:4566'
+      - '4510-4559:4510-4559'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./localstack_data:/var/lib/localstack
+      - ./init-scripts:/etc/localstack/init/ready.d
+      - ./server/lambda:/opt/code/localstack/lambda
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - SERVICES=iam,s3,lambda,dynamodb,apigateway
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT=120
+      - LAMBDA_DOCKER_NETWORK=sdm-network
+      - LAMBDA_REMOVE_CONTAINERS=1
+      - MAIN_CONTAINER_NAME=sdm-localstack
+      - DISABLE_CUSTOM_CORS_APIGATEWAY=1
+    networks:
+      - sdm-network
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sdm-server
+    depends_on:
+      - localstack
+    ports:
+      - '5000:5000'
+    environment:
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    networks:
+      - sdm-network
+    command:
+      ['./wait-for-localstack.sh', 'localstack:4566', '--', 'node app.js']
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: sdm-client
+    ports:
+      - '3000:3000'
+    volumes:
+      - /app/node_modules
+      - ./client:/app
+    depends_on:
+      - server
+    networks:
+      - sdm-network
+
+networks:
+  sdm-network:
+    name: sdm-network

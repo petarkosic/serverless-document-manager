@@ -1,0 +1,4 @@
+node_modules
+.env
+localstack_data
+handler-file.zip
