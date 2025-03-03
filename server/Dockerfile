@@ -15,4 +15,6 @@ COPY wait-for-localstack.sh .
 
 RUN chmod +x wait-for-localstack.sh
 
+RUN dos2unix ./wait-for-localstack.sh
+
 EXPOSE 3000
